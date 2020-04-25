@@ -29,7 +29,7 @@ In our paper, we initialize the transformer layer with [ClinicalBERT](https://gi
 ## Model Prediction
 Below list the scripts for running prediction.
 ```cmd
-python3 run_clbert_ftlstm.py \
+python3 run_clbert_ftlstm.py
   --data_dir ./data
   --train_data train.csv
   --val_data val.csv
