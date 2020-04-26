@@ -50,6 +50,6 @@ python3 run_clbert_ftlstm.py
   --output_dir ./exp_FTL-Trans
   --save_model False
 ```
-We refer users to the [code](to_be_add.com) for detalied explanation of each parameter.
+We refer users to [run_clbert_ftlstm.py](https://github.com/zdy93/FTL-Trans/blob/master/run_clbert_ftlstm.py) for detalied explanation of each parameter.
 
-We also provide [code](to_be_add.com) and [code](to_be_add.com) for preprocessing data and spliting data into chunks. However, if your data does not has the same format as ours, which means that your data does not have the columns that we have (Adm_ID, Note_ID, chartdate, charttime, category, TEXT, dischtime, Label). You need to modify the code before implmenting preprocessing. 
+We also provide [preprocessing.py](https://github.com/zdy93/FTL-Trans/blob/master/preprocessing.py) and [split_into_chunk.py](https://github.com/zdy93/FTL-Trans/blob/master/split_into_chunk.py) for preprocessing data and spliting data into chunks. However, if your data does not has the same format as ours, which means that your data does not have the columns that we have (Adm_ID, Note_ID, chartdate, charttime, category, TEXT, dischtime, Label). You need to modify the code before implmenting preprocessing. 
