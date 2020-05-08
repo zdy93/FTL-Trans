@@ -14,7 +14,7 @@ from sklearn.model_selection import train_test_split
 from pytorch_transformers import BertTokenizer, BertConfig
 from pytorch_pretrained_bert.optimization import BertAdam
 from modeling_readmission import BertModel
-from modeling_patient import T3LSTMLayer
+from modeling_patient import FTLSTMLayer
 from tqdm import tqdm, trange
 import pandas as pd
 import io
@@ -88,7 +88,7 @@ def main():
                         help="The embedding type selected in the list: all, note, chunk, no.")
 
     parser.add_argument("--task_name",
-                        default="T3LSTM_hour_with_ClBERT_mortality",
+                        default="FTLSTM_hour_with_ClBERT_mortality",
                         type=str,
                         required=True,
                         help="The name of the task.")
@@ -163,7 +163,7 @@ def main():
                "train_batch_size: {}, eval_batch_size: {}\n"
                "learning_rate: {}, warmup_proportion: {}\n"
                "num_train_epochs: {}, seed: {}, gradient_accumulation_steps: {}\n"
-               "T3LSTM Model's lstm_layers: {}").format(args.data_dir,
+               "FTLSTM Model's lstm_layers: {}").format(args.data_dir,
                                                       args.data_dir.split('_')[-1],
                                                       args.save_model,
                                                       args.output_dir,
@@ -256,7 +256,7 @@ def main():
 
     model = BertModel.from_pretrained(args.bert_model).to(device)
     model.to(device)
-    lstm_layer = T3LSTMLayer(config=config, num_labels=1)
+    lstm_layer = FTLSTMLayer(config=config, num_labels=1)
     lstm_layer.to(device)
 
     if n_gpu > 1:

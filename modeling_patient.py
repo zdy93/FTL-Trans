@@ -354,156 +354,9 @@ class TLSTMLayer(SelfDefineBert):
             return pred
 
 
-class T2LSTM(nn.Module):
+class FTLSTM(nn.Module):
     def __init__(self, input_size, hidden_size, config, batch_first=True, bidirectional=True):
-        super(T2LSTM, self).__init__()
-        self.input_size = input_size
-        self.hidden_size = hidden_size
-        self.batch_first = batch_first
-        self.bidirectional = bidirectional
-        self.c1 = torch.Tensor([1]).float()
-        self.c2 = torch.Tensor([np.e]).float()
-        self.ones = torch.ones([1, self.hidden_size]).float()
-        self.register_buffer('c1_const', self.c1)
-        self.register_buffer('c2_const', self.c2)
-        self.register_buffer("ones_const", self.ones)
-        # Input Gate Parameter
-        self.Wi = Parameter(torch.normal(0.0, config.initializer_range, size=(self.input_size, self.hidden_size)))
-        self.Ui = Parameter(torch.normal(0.0, config.initializer_range, size=(self.hidden_size, self.hidden_size)))
-        self.bi = Parameter(torch.zeros(self.hidden_size))
-        # Forget Gate Parameter
-        self.Wf = Parameter(torch.normal(0.0, config.initializer_range, size=(self.input_size, self.hidden_size)))
-        self.Uf = Parameter(torch.normal(0.0, config.initializer_range, size=(self.hidden_size, self.hidden_size)))
-        self.bf = Parameter(torch.zeros(self.hidden_size))
-        # Output Gate Parameter
-        self.Wog = Parameter(torch.normal(0.0, config.initializer_range, size=(self.input_size, self.hidden_size)))
-        self.Uog = Parameter(torch.normal(0.0, config.initializer_range, size=(self.hidden_size, self.hidden_size)))
-        self.bog = Parameter(torch.zeros(self.hidden_size))
-        # Cell Layer Parameter
-        self.Wc = Parameter(torch.normal(0.0, config.initializer_range, size=(self.input_size, self.hidden_size)))
-        self.Uc = Parameter(torch.normal(0.0, config.initializer_range, size=(self.hidden_size, self.hidden_size)))
-        self.bc = Parameter(torch.zeros(self.hidden_size))
-        # Decomposition Layer Parameter
-        self.W_decomp = Parameter(
-            torch.normal(0.0, config.initializer_range, size=(self.hidden_size, self.hidden_size)))
-        self.b_decomp = Parameter(torch.zeros(self.hidden_size))
-        # Trainable Decay Function Parameter
-        self.W_decay = Parameter(torch.normal(0.0, config.initializer_range, size=(1, 1)))
-        self.W_decay = Parameter(torch.tensor([1.0]))
-        self.b_decay = Parameter(torch.zeros(1))
-
-    def T2LSTM_unit(self, prev_hidden_memory, inputs, times):
-        prev_hidden_state, prev_cell = prev_hidden_memory
-        x = inputs
-        t = times
-        T = self.map_elapse_time(t)
-        C_ST = torch.tanh(torch.matmul(prev_cell, self.W_decomp) + self.b_decomp)
-        C_ST_dis = torch.mul(T, C_ST)
-        prev_cell = prev_cell - C_ST + C_ST_dis
-
-        # Input Gate
-        i = torch.sigmoid(torch.matmul(x, self.Wi) +
-                          torch.matmul(prev_hidden_state, self.Ui) + self.bi)
-        # Forget Gate
-        f = torch.sigmoid(torch.matmul(x, self.Wf) +
-                          torch.matmul(prev_hidden_state, self.Uf) + self.bf)
-        # Output Gate
-        o = torch.sigmoid(torch.matmul(x, self.Wog) +
-                          torch.matmul(prev_hidden_state, self.Uog) + self.bog)
-        # Candidate Memory Cell
-        C = torch.sigmoid(torch.matmul(x, self.Wc) +
-                          torch.matmul(prev_hidden_state, self.Uc) + self.bc)
-        # Current Memory Cell
-        Ct = f * prev_cell + i * C
-
-        # Current Hidden State
-        current_hidden_state = o * torch.tanh(Ct)
-
-        return current_hidden_state, Ct
-
-    def map_elapse_time(self, t):
-        T = torch.div(self.c1_const, torch.log(self.W_decay*t + self.b_decay + self.c2_const))
-        T = torch.matmul(T, self.ones_const)
-        return T
-
-    def forward(self, inputs, times):
-        device = inputs.device
-        if self.batch_first:
-            batch_size = inputs.size()[0]
-            inputs = inputs.permute(1, 0, 2)
-            times = times.transpose(0, 1)
-        else:
-            batch_size = inputs.size()[1]
-        prev_hidden = torch.zeros((batch_size, self.hidden_size), device=device)
-        prev_cell = torch.zeros((batch_size, self.hidden_size), device=device)
-        seq_len = inputs.size()[0]
-        hidden_his = []
-        for i in range(seq_len):
-            prev_hidden, prev_cell = self.T2LSTM_unit((prev_hidden, prev_cell), inputs[i], times[i])
-            hidden_his.append(prev_hidden)
-        hidden_his = torch.stack(hidden_his)
-        if self.bidirectional:
-            second_hidden = torch.zeros((batch_size, self.hidden_size), device=device)
-            second_cell = torch.zeros((batch_size, self.hidden_size), device=device)
-            second_inputs = torch.flip(inputs, [0])
-            second_times = torch.flip(times, [0])
-            second_hidden_his = []
-            for i in range(seq_len):
-                if i == 0:
-                    time = times[i]
-                else:
-                    time = second_times[i-1]
-                second_hidden, second_cell = self.T2LSTM_unit((second_hidden, second_cell), second_inputs[i], time)
-                second_hidden_his.append(second_hidden)
-            second_hidden_his = torch.stack(second_hidden_his)
-            hidden_his = torch.cat((hidden_his, second_hidden_his), dim=2)
-            prev_hidden = torch.cat((prev_hidden, second_hidden), dim=1)
-            prev_cell = torch.cat((prev_cell, second_cell), dim=1)
-        if self.batch_first:
-            hidden_his = hidden_his.permute(1, 0, 2)
-        return hidden_his, (prev_hidden, prev_cell)
-
-
-class T2LSTMLayer(SelfDefineBert):
-
-    def __init__(self, config, num_labels):
-        super(T2LSTMLayer, self).__init__()
-        self.config = config
-        self.t2lstm = T2LSTM(self.config.hidden_size,
-                           self.config.hidden_size // 2,
-                           self.config,
-                           batch_first=True,
-                           bidirectional=True)
-        self.dropout = nn.Dropout(self.config.hidden_dropout_prob)
-        self.embeddings = PatientLevelEmbedding(config)
-        self.classifier = nn.Linear(self.config.hidden_size, num_labels)
-
-        self.apply(self.init_weights)
-
-    def forward(self, inputs, times, new_note_ids=None, new_chunk_ids=None, labels=None):
-        device = inputs.device
-        batch_size = inputs.size()[0]
-        new_input = self.embeddings(inputs, new_note_ids, new_chunk_ids)
-        lstm_output, hidden = self.t2lstm(new_input, times.float())
-        loss_fct = BCEWithLogitsLoss()
-        drop_input = lstm_output[0, -1, :]
-        class_input = self.dropout(drop_input)
-        logits = self.classifier(class_input)
-        logits = torch.where(torch.isnan(logits), torch.zeros_like(logits), logits)
-        logits = torch.where(torch.isinf(logits), torch.zeros_like(logits), logits)
-        pred = torch.sigmoid(logits)
-        pred = torch.where(torch.isnan(pred), torch.zeros_like(pred), pred)
-        pred = torch.where(torch.isinf(pred), torch.zeros_like(pred), pred)
-        if labels is not None:
-            loss = loss_fct(logits, labels.float().view(1))
-            return loss, pred
-        else:
-            return pred
-
-
-class T3LSTM(nn.Module):
-    def __init__(self, input_size, hidden_size, config, batch_first=True, bidirectional=True):
-        super(T3LSTM, self).__init__()
+        super(FTLSTM, self).__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
         self.batch_first = batch_first
@@ -547,7 +400,7 @@ class T3LSTM(nn.Module):
         self.d = Parameter(torch.tensor([4.5]))
         self.n = Parameter(torch.tensor([2.5]))
 
-    def T3LSTM_unit(self, prev_hidden_memory, inputs, times):
+    def FTLSTM_unit(self, prev_hidden_memory, inputs, times):
         prev_hidden_state, prev_cell = prev_hidden_memory
         x = inputs
         t = times
@@ -599,7 +452,7 @@ class T3LSTM(nn.Module):
         seq_len = inputs.size()[0]
         hidden_his = []
         for i in range(seq_len):
-            prev_hidden, prev_cell = self.T3LSTM_unit((prev_hidden, prev_cell), inputs[i], times[i])
+            prev_hidden, prev_cell = self.FTLSTM_unit((prev_hidden, prev_cell), inputs[i], times[i])
             hidden_his.append(prev_hidden)
         hidden_his = torch.stack(hidden_his)
         if self.bidirectional:
@@ -613,7 +466,7 @@ class T3LSTM(nn.Module):
                     time = times[i]
                 else:
                     time = second_times[i-1]
-                second_hidden, second_cell = self.T3LSTM_unit((second_hidden, second_cell), second_inputs[i], time)
+                second_hidden, second_cell = self.FTLSTM_unit((second_hidden, second_cell), second_inputs[i], time)
                 second_hidden_his.append(second_hidden)
             second_hidden_his = torch.stack(second_hidden_his)
             hidden_his = torch.cat((hidden_his, second_hidden_his), dim=2)
@@ -624,12 +477,12 @@ class T3LSTM(nn.Module):
         return hidden_his, (prev_hidden, prev_cell)
 
 
-class T3LSTMLayer(SelfDefineBert):
+class FTLSTMLayer(SelfDefineBert):
 
     def __init__(self, config, num_labels):
-        super(T3LSTMLayer, self).__init__()
+        super(FTLSTMLayer, self).__init__()
         self.config = config
-        self.t3lstm = T3LSTM(self.config.hidden_size,
+        self.ftlstm = FTLSTM(self.config.hidden_size,
                            self.config.hidden_size // 2,
                            self.config,
                            batch_first=True,
@@ -644,7 +497,7 @@ class T3LSTMLayer(SelfDefineBert):
         device = inputs.device
         batch_size = inputs.size()[0]
         new_input = self.embeddings(inputs, new_note_ids, new_chunk_ids)
-        lstm_output, hidden = self.t3lstm(new_input, times.float())
+        lstm_output, hidden = self.ftlstm(new_input, times.float())
         loss_fct = BCEWithLogitsLoss()
         drop_input = lstm_output[0, -1, :]
         class_input = self.dropout(drop_input)
