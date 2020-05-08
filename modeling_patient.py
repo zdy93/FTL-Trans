@@ -36,15 +36,12 @@ class PatientLevelEmbedding(nn.Module):
         if self.config.embed_mode == "all":
             note_embeds = self.note_embedding(new_note_ids)
             chunk_embeds = self.chunk_embedding(new_chunk_ids)
-            # output = inputs + note_embeds + chunk_embeds
             output = self.combine_embed_rep(torch.cat((inputs, note_embeds, chunk_embeds), 2))
         elif self.config.embed_mode == "note":
             note_embeds = self.note_embedding(new_note_ids)
-            # output = inputs + note_embeds
             output = self.combine_embed_rep(torch.cat((inputs, note_embeds), 2))
         elif self.config.embed_mode == "chunk":
             chunk_embeds = self.chunk_embedding(new_chunk_ids)
-            # output = inputs + chunk_embeds
             output = self.combine_embed_rep(torch.cat((inputs, chunk_embeds), 2))
         elif self.config.embed_mode == "no":
             output = inputs
@@ -108,46 +105,6 @@ class PatientLevelBert(SelfDefineBert):
         return outputs
 
 
-class PatientLevelBertWithLstmLayer(SelfDefineBert):
-    def __init__(self, config, num_labels):
-        super(PatientLevelBertWithLstmLayer, self).__init__()
-        self.config = config
-        self.patient_bert = PatientLevelBert(config)
-        self.lstm = nn.LSTM(self.config.hidden_size,
-                            self.config.hidden_size // 2,
-                            self.config.lstm_layers,
-                            batch_first=True,
-                            bidirectional=True)
-        self.dropout = nn.Dropout(self.config.hidden_dropout_prob)
-        self.classifier = nn.Linear(self.config.hidden_size, num_labels)
-
-        self.apply(self.init_weights)
-
-    # def init_hiddens(self, batch_size, device, n_gpu):
-    #     hidden = (torch.zeros(self.config.lstm_layers * 2 * n_gpu, batch_size, self.config.hidden_size // 2).to(device),
-    #               torch.zeros(self.config.lstm_layers * 2 * n_gpu, batch_size, self.config.hidden_size // 2).to(device))
-    #     return hidden
-
-    def forward(self, inputs, new_note_ids=None, new_chunk_ids=None, labels=None):
-        device = inputs.device
-        batch_size = inputs.size()[0]
-        hidden = (torch.zeros((self.config.lstm_layers * 2, batch_size, self.config.hidden_size // 2), device=device),
-                  torch.zeros((self.config.lstm_layers * 2, batch_size, self.config.hidden_size // 2), device=device))
-        outputs = self.patient_bert(inputs, new_note_ids, new_chunk_ids)
-        seq_output = outputs[0]
-        lstm_output, hidden = self.lstm(seq_output, hidden)
-        drop_input = lstm_output[:, -1, :].squeeze(1)
-        class_input = self.dropout(drop_input)
-        logits = self.classifier(class_input)
-        pred = torch.sigmoid(logits).squeeze(1)
-        if labels is not None:
-            loss_fct = BCELoss()
-            loss = loss_fct(pred, labels.float())
-            return loss, pred
-        else:
-            return pred
-
-
 class PatientLevelBertForSequenceClassification(SelfDefineBert):
     def __init__(self, config, num_labels):
         super(PatientLevelBertForSequenceClassification, self).__init__()
@@ -204,11 +161,6 @@ class LSTMLayer(SelfDefineBert):
             return loss, pred
         else:
             return pred
-
-    # def init_hiddens(self, batch_size, device, n_gpu):
-    #     hidden = (torch.zeros(self.config.lstm_layers * 2 * n_gpu, batch_size, self.config.hidden_size // 2).to(device),
-    #               torch.zeros(self.config.lstm_layers * 2 * n_gpu, batch_size, self.config.hidden_size // 2).to(device))
-    #     return hidden
 
 
 class TLSTM(nn.Module):
@@ -334,8 +286,6 @@ class TLSTMLayer(SelfDefineBert):
         self.apply(self.init_weights)
 
     def forward(self, inputs, times, new_note_ids=None, new_chunk_ids=None, labels=None):
-        device = inputs.device
-        batch_size = inputs.size()[0]
         new_input = self.embeddings(inputs, new_note_ids, new_chunk_ids)
         lstm_output, hidden = self.tlstm(new_input, times.float())
         loss_fct = BCEWithLogitsLoss()
@@ -494,8 +444,6 @@ class FTLSTMLayer(SelfDefineBert):
         self.apply(self.init_weights)
 
     def forward(self, inputs, times, new_note_ids=None, new_chunk_ids=None, labels=None):
-        device = inputs.device
-        batch_size = inputs.size()[0]
         new_input = self.embeddings(inputs, new_note_ids, new_chunk_ids)
         lstm_output, hidden = self.ftlstm(new_input, times.float())
         loss_fct = BCEWithLogitsLoss()
@@ -512,34 +460,3 @@ class FTLSTMLayer(SelfDefineBert):
             return loss, pred
         else:
             return pred
-
-
-class MeanLayer(nn.Module):
-    def __init__(self, config, num_labels):
-        super(MeanLayer, self).__init__()
-        self.config = config
-        self.num_labels = num_labels
-
-    def forward(self, logits, labels=None):
-        assert self.config.mode in ["simple_mean",
-                                    "simple_max",
-                                    "scaled_adjusted_mean"]
-        if self.num_labels == 1:
-            preds = torch.sigmoid(logits)
-        else:
-            preds = torch.softmax(logits, dim=1)[:, 1]
-        if self.config.mode == "simple_mean":
-            final_pred = torch.mean(preds)
-        elif self.config.mode == "simple_max":
-            final_pred = torch.max(preds)
-        else:
-            sum_value = torch.sum(preds)
-            max_value = torch.max(preds)
-            n = preds.size[0]
-            final_pred = (max_value + sum_value / n) / (1 + n / self.config.c)
-        loss_fct = BCELoss()
-        if labels is not None:
-            loss = loss_fct(final_pred.view(1), labels.float())
-            return loss, final_pred
-        else:
-            return final_pred
