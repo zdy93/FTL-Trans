@@ -284,7 +284,6 @@ def main():
 
     # Number of training epochs (authors recommend between 2 and 4)
     epochs = args.num_train_epochs
-    # old_epoch = epoch
     write_log("Training start!", LOG_PATH)
     # trange is a tqdm wrapper around the normal python range
     with torch.autograd.set_detect_anomaly(False):
@@ -403,10 +402,7 @@ def main():
     if args.save_model:
         output_fig_path = os.path.join(args.output_dir, "bert_fine_tuned_with_note_training_loss.png")
         plt.savefig(output_fig_path, dpi=fig1.dpi)
-
-        # output_model_path = os.path.join(args.output_dir, "bert_fine_tuned_with_note.pt")
         output_model_state_dict_path = os.path.join(args.output_dir, "bert_fine_tuned_with_note_state_dict.pt")
-        # torch.save(model, output_model_path)
         if n_gpu > 1:
             torch.save({
                 'model_state_dict': model.module.state_dict(),
@@ -419,8 +415,6 @@ def main():
                 'lstm_layer_state_dict': lstm_layer.state_dict(),
             },
                 output_model_state_dict_path)
-        # torch.save({'model': model, 'lstm_layer': lstm_layer}, output_model_path)
-        # torch.save(model.state_dict(), output_model_state_dict_path)
         write_log("Model saved!", LOG_PATH)
     else:
         output_fig_path = os.path.join(args.output_dir,

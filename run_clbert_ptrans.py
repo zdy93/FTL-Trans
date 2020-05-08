@@ -87,7 +87,7 @@ def main():
                         help="The embedding type selected in the list: all, note, chunk, no.")
 
     parser.add_argument("--task_name",
-                        default="P-BERT_with_ClBERT_mortality",
+                        default="Patient_Transformer_with_ClBERT_mortality",
                         type=str,
                         required=True,
                         help="The name of the task.")
@@ -287,7 +287,6 @@ def main():
 
     # Number of training epochs (authors recommend between 2 and 4)
     epochs = args.num_train_epochs
-    # old_epoch = epoch
     write_log("Training start!", LOG_PATH)
     # trange is a tqdm wrapper around the normal python range
     with torch.autograd.set_detect_anomaly(True):
@@ -313,7 +312,6 @@ def main():
                 b_note_ids = train_note_ids[step][-args.max_chunk_num:]
                 b_new_note_ids = convert_note_ids(b_note_ids).to(device)
                 b_chunk_ids = train_chunk_ids[step][-args.max_chunk_num:].unsqueeze(0).to(device)
-                # optimizer.zero_grad()
                 _, whole_output = model(b_input_ids, token_type_ids=None, attention_mask=b_input_mask)
                 whole_input = whole_output.unsqueeze(0)
                 b_new_note_ids = b_new_note_ids.unsqueeze(0)
