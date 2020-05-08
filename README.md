@@ -27,7 +27,7 @@ data/
 ## Pretrained Model
 In our paper, we initialize the transformer layer with [ClinicalBERT](https://github.com/kexinhuang12345/clinicalBERT). We refer user to the link for requesting pre-trained model. You can also use some other pre-trained model, like [BERT](https://github.com/huggingface/transformers).
 ## Model Prediction
-Below list the scripts for running prediction.
+Below list the scripts for running prediction. The file run_clbert_ftlstm.py contains the code for the FT-Trans. Other files named as run_\[model\].py contain codes for baseline models.
 ```cmd
 python3 run_clbert_ftlstm.py
   --data_dir ./data
