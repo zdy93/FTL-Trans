@@ -88,7 +88,7 @@ def main():
                         help="The embedding type selected in the list: all, note, chunk, no.")
 
     parser.add_argument("--task_name",
-                        default="FTLSTM_hour_with_ClBERT_mortality",
+                        default="FTLSTM_with_ClBERT_mortality",
                         type=str,
                         required=True,
                         help="The name of the task.")
