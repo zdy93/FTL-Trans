@@ -48,7 +48,7 @@ python3 run_clbert_ftlstm.py
   --seed 42
   --gradient_accumulation_steps 1
   --output_dir ./exp_FTL-Trans
-  --save_model False
+  --save_model True
 ```
 We refer users to [run_clbert_ftlstm.py](https://github.com/zdy93/FTL-Trans/blob/master/run_clbert_ftlstm.py) for detalied explanation of each parameter.
 
