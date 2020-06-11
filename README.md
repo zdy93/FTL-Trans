@@ -27,7 +27,7 @@ data/
 ## Pretrained Model
 In our paper, we initialize the transformer layer with [ClinicalBERT](https://github.com/kexinhuang12345/clinicalBERT). We refer user to the link for requesting pre-trained model. You can also use some other pre-trained models, like [BERT](https://github.com/huggingface/transformers).
 ## Model Prediction
-Below list the scripts for running prediction. The file run_clbert_ftlstm.py contains the code for the FT-Trans. Other files named as run_\[model\].py contain codes for baseline models.
+Below list the scripts for running prediction. The file [run_clbert_ftlstm.py](./run_clbert_ftlstm.py) contains the code for the FT-Trans. Other files named as run_\[model\].py contain codes for baseline models.
 ```cmd
 python3 run_clbert_ftlstm.py
   --data_dir ./data
@@ -50,6 +50,6 @@ python3 run_clbert_ftlstm.py
   --output_dir ./exp_FTL-Trans
   --save_model True
 ```
-We refer users to [run_clbert_ftlstm.py](https://github.com/zdy93/FTL-Trans/blob/master/run_clbert_ftlstm.py) for detalied explanation of each parameter.
+We refer users to [run_clbert_ftlstm.py](./run_clbert_ftlstm.py) for detalied explanation of each parameter.
 
-We also provide [preprocessing.py](https://github.com/zdy93/FTL-Trans/blob/master/preprocessing.py) and [split_into_chunk.py](https://github.com/zdy93/FTL-Trans/blob/master/split_into_chunk.py) for preprocessing data and spliting data into chunks. However, if your data does not has the same format as ours, which means that your data does not have the columns that we have (Adm_ID, Note_ID, chartdate, charttime, category, TEXT, dischtime, Label). You need to modify the code before implmenting preprocessing. 
+We also provide [preprocessing.py](./preprocessing.py) and [split_into_chunk.py](./split_into_chunk.py) for preprocessing data and spliting data into chunks. However, if your data does not has the same format as ours, which means that your data does not have the columns that we have (Adm_ID, Note_ID, chartdate, charttime, category, TEXT, dischtime, Label). You need to modify the code before implmenting preprocessing. 
