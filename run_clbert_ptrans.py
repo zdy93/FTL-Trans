@@ -24,6 +24,7 @@ from dotmap import DotMap
 from torch import nn
 import re
 from other_func import write_log, Tokenize_with_note_id, concat_by_id_list_with_note_chunk_id, convert_note_ids, flat_accuracy, write_performance,  reorder_by_time
+from utils import time_batch_generator
 
 
 def main():
@@ -287,6 +288,11 @@ def main():
 
     # Number of training epochs (authors recommend between 2 and 4)
     epochs = args.num_train_epochs
+
+    train_batch_generator = time_batch_generator(args.max_chunk_num, train_inputs, train_labels, train_masks,
+                                                 train_note_ids, train_chunk_ids)
+    validation_batch_generator = time_batch_generator(args.max_chunk_num, validation_inputs, validation_labels,
+                                                      validation_masks, validation_note_ids, validation_chunk_ids)
     write_log("Training start!", LOG_PATH)
     # trange is a tqdm wrapper around the normal python range
     with torch.autograd.set_detect_anomaly(True):
@@ -305,13 +311,13 @@ def main():
             # Train the data for one epoch
             tr_ids_num = len(train_ids)
             for step in range(tr_ids_num):
-                b_input_ids = train_inputs[step][-args.max_chunk_num:, :].to(device)
-                b_input_mask = train_masks[step][-args.max_chunk_num:, :].to(device)
-                b_labels = train_labels[step].to(device)
-                b_labels.resize_((1))
-                b_note_ids = train_note_ids[step][-args.max_chunk_num:]
+                b_input_ids, b_labels, b_input_mask, b_note_ids, b_chunk_ids = next(train_batch_generator)
+                b_input_ids = b_input_ids.to(device)
+                b_input_mask = b_input_mask.to(device)
                 b_new_note_ids = convert_note_ids(b_note_ids).to(device)
-                b_chunk_ids = train_chunk_ids[step][-args.max_chunk_num:].unsqueeze(0).to(device)
+                b_chunk_ids = b_chunk_ids.unsqueeze(0).to(device)
+                b_labels = b_labels.to(device)
+                b_labels.resize_((1))
                 _, whole_output = model(b_input_ids, token_type_ids=None, attention_mask=b_input_mask)
                 whole_input = whole_output.unsqueeze(0)
                 b_new_note_ids = b_new_note_ids.unsqueeze(0)
@@ -332,9 +338,6 @@ def main():
                 nb_tr_examples += b_input_ids.size(0)
                 nb_tr_steps += 1
 
-                del _, whole_output, whole_input, b_input_ids, b_input_mask, b_labels, b_new_note_ids, b_chunk_ids
-                torch.cuda.empty_cache()
-
             write_log("Train loss: {}".format(tr_loss / nb_tr_steps), LOG_PATH)
 
             # Validation
@@ -350,18 +353,16 @@ def main():
             ev_ids_num = len(validation_ids)
             for step in range(ev_ids_num):
                 with torch.no_grad():
-                    b_input_ids = validation_inputs[step][-args.max_chunk_num:, :].to(device)
-                    b_input_mask = validation_masks[step][-args.max_chunk_num:, :].to(device)
-                    b_note_ids = validation_note_ids[step][-args.max_chunk_num:]
+                    b_input_ids, b_labels, b_input_mask, b_note_ids, b_chunk_ids = next(validation_batch_generator)
+                    b_input_ids = b_input_ids.to(device)
+                    b_input_mask = b_input_mask.to(device)
                     b_new_note_ids = convert_note_ids(b_note_ids).to(device)
-                    b_chunk_ids = validation_chunk_ids[step][-args.max_chunk_num:].unsqueeze(0).to(device)
-                    b_labels = validation_labels[step].to(device)
                     b_labels.resize_((1))
                     _, whole_output = model(b_input_ids, token_type_ids=None, attention_mask=b_input_mask)
                     whole_input = whole_output.unsqueeze(0)
                     b_new_note_ids = b_new_note_ids.unsqueeze(0)
                     pred = patient_model(whole_input, b_new_note_ids, b_chunk_ids).detach().cpu().numpy()
-                label_ids = b_labels.to('cpu').numpy()
+                label_ids = b_labels.numpy()
                 tmp_eval_accuracy = flat_accuracy(pred, label_ids)
                 eval_accuracy += tmp_eval_accuracy
                 nb_eval_steps += 1
@@ -439,14 +440,14 @@ def main():
         b_note_ids = test_note_ids[step][-args.max_chunk_num:]
         b_new_note_ids = convert_note_ids(b_note_ids).to(device)
         b_chunk_ids = test_chunk_ids[step][-args.max_chunk_num:].unsqueeze(0).to(device)
-        b_labels = test_labels[step].to(device)
+        b_labels = test_labels[step]
         b_labels.resize_((1))
         with torch.no_grad():
             _, whole_output = model(b_input_ids, token_type_ids=None, attention_mask=b_input_mask)
             whole_input = whole_output.unsqueeze(0)
             b_new_note_ids = b_new_note_ids.unsqueeze(0)
             pred = patient_model(whole_input, b_new_note_ids, b_chunk_ids).detach().cpu().numpy()
-        label_ids = b_labels.to('cpu').numpy()[0]
+        label_ids = b_labels.numpy()[0]
         predictions.append(pred)
         true_labels.append(label_ids)
 

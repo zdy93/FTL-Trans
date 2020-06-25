@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 @author: Dongyu Zhang
 """
@@ -10,10 +10,10 @@ import torch
 import random
 import argparse
 from torch.utils.data import TensorDataset, DataLoader, RandomSampler, SequentialSampler
-from keras.preprocessing.sequence import pad_sequences
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import matthews_corrcoef, accuracy_score,  precision_score, recall_score, f1_score
-from sklearn.metrics import roc_auc_score, precision_recall_curve, roc_curve, auc, confusion_matrix, classification_report
+from sklearn.metrics import matthews_corrcoef, accuracy_score, precision_score, recall_score, f1_score
+from sklearn.metrics import roc_auc_score, precision_recall_curve, roc_curve, auc, confusion_matrix, \
+    classification_report
 from pytorch_transformers import BertTokenizer, BertConfig
 from pytorch_transformers import AdamW, BertForSequenceClassification, WarmupLinearSchedule
 from pytorch_pretrained_bert.optimization import BertAdam
@@ -23,7 +23,9 @@ import io
 import numpy as np
 from dotmap import DotMap
 import matplotlib.pyplot as plt
-from other_func import write_log, Tokenize_with_note_id, concat_by_id_list_with_note_chunk_id, flat_accuracy, model_auc, write_performance
+from other_func import write_log, Tokenize_with_note_id, concat_by_id_list_with_note_chunk_id, flat_accuracy, model_auc, \
+    write_performance
+from utils import mask_batch_generator
 
 
 def get_patient_score(df, c):
@@ -36,6 +38,13 @@ def get_patient_score(df, c):
     ids = df_sort['Adm_ID'].unique()
     df_out = pd.DataFrame({'logits': temp.values, 'pred_label': predictions, 'label': x, 'Adm_ID': ids})
     return df_out
+
+
+def test_func(sublist):
+    if sublist.shape is ():
+        return [sublist.tolist()]
+    else:
+        return sublist
 
 
 def main():
@@ -178,20 +187,20 @@ def main():
                "train_batch_size: {}, eval_batch_size: {}\n"
                "learning_rate: {}, warmup_proportion: {}\n"
                "num_train_epochs: {}, seed: {}, gradient_accumulation_steps: {}").format(args.data_dir,
-                                                      args.data_dir.split('_')[-1],
-                                                      args.save_model,
-                                                      args.output_dir,
-                                                      config.task_name,
-                                                      config.embed_mode,
-                                                      args.max_seq_length,
-                                                      args.max_chunk_num,
-                                                      args.train_batch_size,
-                                                      args.eval_batch_size,
-                                                      args.learning_rate,
-                                                      args.warmup_proportion,
-                                                      args.num_train_epochs,
-                                                      args.seed,
-                                                      args.gradient_accumulation_steps),
+                                                                                         args.data_dir.split('_')[-1],
+                                                                                         args.save_model,
+                                                                                         args.output_dir,
+                                                                                         config.task_name,
+                                                                                         config.embed_mode,
+                                                                                         args.max_seq_length,
+                                                                                         args.max_chunk_num,
+                                                                                         args.train_batch_size,
+                                                                                         args.eval_batch_size,
+                                                                                         args.learning_rate,
+                                                                                         args.warmup_proportion,
+                                                                                         args.num_train_epochs,
+                                                                                         args.seed,
+                                                                                         args.gradient_accumulation_steps),
               LOG_PATH)
 
     content = "config setting: \n"
@@ -286,6 +295,11 @@ def main():
 
     # Number of training epochs (authors recommend between 2 and 4)
     epochs = args.num_train_epochs
+
+    train_batch_generator = mask_batch_generator(args.max_chunk_num, train_inputs, train_labels, train_masks)
+    validation_batch_generator = mask_batch_generator(args.max_chunk_num, validation_inputs, validation_labels,
+                                                      validation_masks)
+
     write_log("Training start!", LOG_PATH)
     # trange is a tqdm wrapper around the normal python range
     with torch.autograd.set_detect_anomaly(True):
@@ -303,9 +317,10 @@ def main():
             tr_ids_num = len(train_ids)
             tr_batch_loss = []
             for step in range(tr_ids_num):
-                b_input_ids = train_inputs[step][-args.max_chunk_num:, :].to(device)
-                b_input_mask = train_masks[step][-args.max_chunk_num:, :].to(device)
-                b_labels = train_labels[step].repeat(b_input_ids.shape[0]).to(device)
+                b_input_ids, b_labels, b_input_mask = next(train_batch_generator)
+                b_input_ids = b_input_ids.to(device)
+                b_input_mask = b_input_mask.to(device)
+                b_labels = b_labels.repeat(b_input_ids.shape[0]).to(device)
                 # Forward pass
                 outputs = model(b_input_ids, token_type_ids=None, attention_mask=b_input_mask, labels=b_labels)
                 loss, logits = outputs[:2]
@@ -326,8 +341,6 @@ def main():
                 nb_tr_examples += b_input_ids.size(0)
                 nb_tr_steps += 1
 
-                del outputs, b_input_ids, b_input_mask, b_labels
-                torch.cuda.empty_cache()
 
             write_log("Train loss: {}".format(tr_loss / nb_tr_steps), LOG_PATH)
 
@@ -343,14 +356,15 @@ def main():
             ev_ids_num = len(validation_ids)
             for step in range(ev_ids_num):
                 with torch.no_grad():
-                    b_input_ids = validation_inputs[step][-args.max_chunk_num:, :].to(device)
-                    b_input_mask = validation_masks[step][-args.max_chunk_num:, :].to(device)
-                    b_labels = validation_labels[step].repeat(b_input_ids.shape[0]).to(device)
+                    b_input_ids, b_labels, b_input_mask = next(validation_batch_generator)
+                    b_input_ids = b_input_ids.to(device)
+                    b_input_mask = b_input_mask.to(device)
+                    b_labels = b_labels.repeat(b_input_ids.shape[0])
                     outputs = model(b_input_ids, token_type_ids=None, attention_mask=b_input_mask)
                     # Move logits and labels to CPU
                     logits = outputs[-1]
                     logits = m(logits).detach().cpu().numpy()[:, 1]
-                    label_ids = b_labels.to('cpu').numpy()
+                    label_ids = b_labels.numpy()
 
                     tmp_eval_accuracy = flat_accuracy(logits, label_ids)
 
@@ -419,7 +433,7 @@ def main():
     for step in range(te_ids_num):
         b_input_ids = test_inputs[step][-args.max_chunk_num:, :].to(device)
         b_input_mask = test_masks[step][-args.max_chunk_num:, :].to(device)
-        b_labels = test_labels[step].repeat(b_input_ids.shape[0]).to(device)
+        b_labels = test_labels[step].repeat(b_input_ids.shape[0])
         # Telling the model not to compute or store gradients, saving memory and speeding up prediction
         with torch.no_grad():
             # Forward pass, calculate logit predictions
@@ -428,7 +442,7 @@ def main():
         # Move logits and labels to CPU
         logits = outputs[-1]
         logits = m(logits).detach().cpu().numpy()[:, 1]
-        label_ids = b_labels.to('cpu').numpy()
+        label_ids = b_labels.numpy()
         adm_ids = test_ids[step].repeat(b_input_ids.shape[0])
 
         # Store predictions and true labels

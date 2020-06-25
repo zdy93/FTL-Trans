@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-#-*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """
 @author: Dongyu Zhang
 """
@@ -13,19 +13,19 @@ import pandas as pd
 from tqdm import trange, tqdm
 from sklearn.metrics import roc_curve, precision_recall_curve, \
     auc, matthews_corrcoef, accuracy_score, precision_score, recall_score, f1_score
-from keras.preprocessing.sequence import pad_sequences
+from utils import pad_sequences
 
 
 def write_log(content, log_path, print_content=True):
     if os.path.exists(log_path):
         with open(log_path, 'a') as f:
-            f.write("Time: "+time.ctime()+"\n")
-            f.write(content +"\n")
+            f.write("Time: " + time.ctime() + "\n")
+            f.write(content + "\n")
             f.write("=====================\n")
     else:
         with open(log_path, 'w') as f:
-            f.write("Time: "+time.ctime()+"\n")
-            f.write(content +"\n")
+            f.write("Time: " + time.ctime() + "\n")
+            f.write(content + "\n")
             f.write("=====================\n")
     if print_content:
         print(content)
@@ -53,11 +53,12 @@ def preprocessing(df_less_n, tokenizer):
 
     sen = df_less_n['TEXT'].values
     tokenized_texts = [tokenizer.tokenize(x) for x in sen]
-    print("First sentence tokeized")
+    print("First sentence tokenized")
     print(tokenized_texts[0])
     input_ids = [tokenizer.convert_tokens_to_ids(x) for x in tokenized_texts]
     df_less_n['Input_ID'] = input_ids
     return df_less_n[['Adm_ID', 'Note_ID', 'TEXT', 'Input_ID', 'Label', 'chartdate', 'charttime']]
+
 
 def word_count_pre(df_less_n):
     df_less_n['TEXT'] = df_less_n['TEXT'].fillna(' ')
@@ -75,21 +76,21 @@ def split_into_chunks(df, max_len):
     Adm_ID, Note_ID, Input_ID, Label, chartdate, charttime = [], [], [], [], [], []
     for i in tqdm(range(df_len)):
         x = input_ids[i]
-        n = int(len(x)/(max_len-2))
+        n = int(len(x) / (max_len - 2))
         for j in range(n):
             Adm_ID.append(df.Adm_ID[i])
             Note_ID.append(df.Note_ID[i])
-            sub_ids = x[j*(max_len-2): (j+1)*(max_len-2)]
+            sub_ids = x[j * (max_len - 2): (j + 1) * (max_len - 2)]
             sub_ids.insert(0, '101')
             sub_ids.append('102')
             Input_ID.append(' '.join(sub_ids))
             Label.append(df.Label[i])
             chartdate.append(df.chartdate[i])
             charttime.append(df.charttime[i])
-        if len(x) % (max_len-2) > 10:
+        if len(x) % (max_len - 2) > 10:
             Adm_ID.append(df.Adm_ID[i])
             Note_ID.append(df.Note_ID[i])
-            sub_ids = x[-((len(x))%(max_len-2)):]
+            sub_ids = x[-((len(x)) % (max_len - 2)):]
             sub_ids.insert(0, '101')
             sub_ids.append('102')
             Input_ID.append(' '.join(sub_ids))
@@ -97,11 +98,11 @@ def split_into_chunks(df, max_len):
             chartdate.append(df.chartdate[i])
             charttime.append(df.charttime[i])
     new_df = pd.DataFrame({'Adm_ID': Adm_ID,
-                        'Note_ID': Note_ID,
-                        'Input_ID': Input_ID,
-                        'Label': Label,
-                        'chartdate': chartdate,
-                        'charttime': charttime})
+                           'Note_ID': Note_ID,
+                           'Input_ID': Input_ID,
+                           'Label': Label,
+                           'chartdate': chartdate,
+                           'charttime': charttime})
     new_df = new_df.astype({'Adm_ID': 'int64', 'Note_ID': 'int64', 'Label': 'int64'})
     return new_df
 
@@ -124,7 +125,7 @@ def Tokenize(df, max_length, tokenizer):
     input_ids = pad_sequences(input_ids, maxlen=max_length, dtype="long", truncating="post", padding="post")
     attention_masks = []
     for seq in input_ids:
-        seq_mask = [float(i>0) for i in seq]
+        seq_mask = [float(i > 0) for i in seq]
         attention_masks.append(seq_mask)
     return labels, input_ids, attention_masks
 
@@ -137,7 +138,7 @@ def Tokenize_with_note_id(df, max_length, tokenizer):
         labels = df.Label.values
         sen = ["[CLS] " + x + " [SEP]" for x in sen]
         tokenized_texts = [tokenizer.tokenize(x) for x in sen]
-        print("First sentence tokeized")
+        print("First sentence tokenized")
         print(tokenized_texts[0])
         input_ids = [tokenizer.convert_tokens_to_ids(x) for x in tokenized_texts]
     else:
@@ -148,7 +149,7 @@ def Tokenize_with_note_id(df, max_length, tokenizer):
     input_ids = pad_sequences(input_ids, maxlen=max_length, dtype="long", truncating="post", padding="post")
     attention_masks = []
     for seq in input_ids:
-        seq_mask = [float(i>0) for i in seq]
+        seq_mask = [float(i > 0) for i in seq]
         attention_masks.append(seq_mask)
     return labels, input_ids, attention_masks, note_ids
 
@@ -164,7 +165,7 @@ def Tokenize_with_note_id_time(df, max_length, tokenizer):
         labels = df.Label.values
         sen = ["[CLS] " + x + " [SEP]" for x in sen]
         tokenized_texts = [tokenizer.tokenize(x) for x in sen]
-        print("First sentence tokeized")
+        print("First sentence tokenized")
         print(tokenized_texts[0])
         input_ids = [tokenizer.convert_tokens_to_ids(x) for x in tokenized_texts]
     else:
@@ -175,7 +176,7 @@ def Tokenize_with_note_id_time(df, max_length, tokenizer):
     input_ids = pad_sequences(input_ids, maxlen=max_length, dtype="long", truncating="post", padding="post")
     attention_masks = []
     for seq in input_ids:
-        seq_mask = [float(i>0) for i in seq]
+        seq_mask = [float(i > 0) for i in seq]
         attention_masks.append(seq_mask)
     return labels, input_ids, attention_masks, note_ids, times
 
@@ -191,7 +192,7 @@ def Tokenize_with_note_id_hour(df, max_length, tokenizer):
         labels = df.Label.values
         sen = ["[CLS] " + x + " [SEP]" for x in sen]
         tokenized_texts = [tokenizer.tokenize(x) for x in sen]
-        print("First sentence tokeized")
+        print("First sentence tokenized")
         print(tokenized_texts[0])
         input_ids = [tokenizer.convert_tokens_to_ids(x) for x in tokenized_texts]
     else:
@@ -202,17 +203,21 @@ def Tokenize_with_note_id_hour(df, max_length, tokenizer):
     input_ids = pad_sequences(input_ids, maxlen=max_length, dtype="long", truncating="post", padding="post")
     attention_masks = []
     for seq in input_ids:
-        seq_mask = [float(i>0) for i in seq]
+        seq_mask = [float(i > 0) for i in seq]
         attention_masks.append(seq_mask)
     return labels, input_ids, attention_masks, note_ids, times
+
 
 def reorder_by_time(data):
     data.chartdate = pd.to_datetime(data.chartdate)
     data.charttime = pd.to_datetime(data.charttime)
-    data.loc[data.charttime.isna(), 'charttime'] = data[data.charttime.isna()].chartdate + pd.Timedelta(hours=23, minutes=59, seconds=59)
+    data.loc[data.charttime.isna(), 'charttime'] = data[data.charttime.isna()].chartdate + pd.Timedelta(hours=23,
+                                                                                                        minutes=59,
+                                                                                                        seconds=59)
     data = data.sort_values(by=['Adm_ID', 'charttime', 'Note_ID'])
     data.reset_index(inplace=True)
     return data
+
 
 def concat_by_id_list(df, labels, inputs, masks, str_len):
     final_labels, final_inputs, final_masks = [], [], []
@@ -226,7 +231,7 @@ def concat_by_id_list(df, labels, inputs, masks, str_len):
 
 
 def concat_by_id_list_with_note_chunk_id(df, labels, inputs, masks, note_ids, str_len):
-    final_labels, final_inputs, final_masks, final_note_ids, final_chunk_ids  = [], [], [], [], []
+    final_labels, final_inputs, final_masks, final_note_ids, final_chunk_ids = [], [], [], [], []
     id_lists = df.Adm_ID.unique()
     for id in id_lists:
         id_ix = df.index[df.Adm_ID == id].to_list()
@@ -268,6 +273,7 @@ def model_auc(y_true, y_pred):
     fpr, tpr, thresholds = roc_curve(y_true, y_pred)
     auc_score = auc(fpr, tpr)
     return auc_score, fpr, tpr, thresholds
+
 
 def model_aupr(y_true, y_pred):
     precision, recall, thresholds = precision_recall_curve(y_true, y_pred)
