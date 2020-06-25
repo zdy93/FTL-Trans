@@ -10,7 +10,7 @@ This repo hosts relevant scripts for Flexible Time-Aware LSTM Transformer (**FTL
 * pytorch-transformers==1.2.0
 * tqdm==4.37.0
 * dotmap==1.3.8
-* Keras==2.3.1
+* six==1.13.0
 * matplotlib==3.1.1
 * numpy==1.17.3
 * pandas==0.25.3
