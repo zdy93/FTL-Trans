@@ -30,7 +30,7 @@ In our paper, we initialize the transformer layer with [ClinicalBERT](https://gi
 Below list the scripts for running prediction. The file [run_clbert_ftlstm.py](./run_clbert_ftlstm.py) contains the code for the FT-Trans. Other files named as run_\[model\].py contain codes for baseline models.
 ```cmd
 python3 run_clbert_ftlstm.py
-  --data_dir ./data
+  --data_dir ./data_01
   --train_data train.csv
   --val_data val.csv
   --test_data test.csv
