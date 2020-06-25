@@ -314,16 +314,10 @@ class FTLSTM(nn.Module):
         self.c1 = torch.Tensor([1]).float()
         self.c2 = torch.Tensor([np.e]).float()
         self.c3 = torch.Tensor([0.]).float()
-
-        # self.c4 = torch.Tensor([[1e-8]]).float()
-
         self.ones = torch.ones([1, self.hidden_size]).float()
         self.register_buffer('c1_const', self.c1)
         self.register_buffer('c2_const', self.c2)
         self.register_buffer('c3_const', self.c3)
-
-        # self.register_buffer('c4_const', self.c4)
-
         self.register_buffer("ones_const", self.ones)
         # Input Gate Parameter
         self.Wi = Parameter(torch.normal(0.0, config.initializer_range, size=(self.input_size, self.hidden_size)))
@@ -387,21 +381,8 @@ class FTLSTM(nn.Module):
 
     def map_elapse_time(self, t):
         T_1 = torch.div(self.c1_const, torch.mul(self.a, torch.pow(t, self.b)))
-
-        # T_1 = torch.min(T_1, self.c1_const)
-
         T_2 = self.k - torch.mul(self.m, t)
-
-        # T_2 = torch.max(T_2, self.c3_const)
-        # T_2 = torch.min(T_2, self.c1_const)
-
         T_3 = torch.div(self.c1_const, (self.c1_const + torch.pow(torch.div(t, self.d), self.n)))
-        # W_decay_sum = self.W_decay_1 + self.W_decay_2 + self.W_decay_3
-        # W_decay_sum = torch.max(W_decay_sum, self.c4_const)
-        # W_decay_1 = torch.div(self.W_decay_1, W_decay_sum)
-        # W_decay_2 = torch.div(self.W_decay_2, W_decay_sum)
-        # W_decay_3 = torch.div(self.W_decay_3, W_decay_sum)
-        # T = torch.mul(W_decay_1, T_1) + torch.mul(W_decay_2, T_2) + torch.mul(W_decay_3, T_3)
         T = torch.mul(self.W_decay_1, T_1) + torch.mul(self.W_decay_2, T_2) + torch.mul(self.W_decay_3, T_3)
         T = torch.max(T, self.c3_const)
         T = torch.min(T, self.c1_const)
