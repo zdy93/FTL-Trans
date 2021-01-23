@@ -52,4 +52,4 @@ python3 run_clbert_ftlstm.py
 ```
 We refer users to [run_clbert_ftlstm.py](./run_clbert_ftlstm.py) for detalied explanation of each parameter.
 
-We also provide [preprocessing.py](./preprocessing.py) and [split_into_chunk.py](./split_into_chunk.py) for preprocessing data and spliting data into chunks. However, if your data does not has the same format as ours, which means that your data does not have the columns that we have (Adm_ID, Note_ID, chartdate, charttime, category, TEXT, dischtime, Label). You need to modify the code before implmenting preprocessing. 
+We also provide [preprocessing.py](./preprocessing.py) and [split_into_chunk.py](./split_into_chunk.py) for preprocessing data and spliting data into chunks. However, if your data does not has the same format as ours, which means that your data does not have the columns that we have (Adm_ID, Note_ID, chartdate, charttime, TEXT, Label). You need to modify the code before implmenting preprocessing. 
