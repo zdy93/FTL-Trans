@@ -1,5 +1,5 @@
 # FTL-Trans
-This repo hosts relevant scripts for Flexible Time-Aware LSTM Transformer (**FTL-Trans**). 
+This repository is the official implementation of the **MLHC2020** paper [Time-Aware Transformer-based Network for Clinical Notes Series Prediction](https://proceedings.mlr.press/v126/zhang20c.html). 
 
 ## Requirement
 ### Language
